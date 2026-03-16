@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sales Pipeline Agent</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <style>
     body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
@@ -19,30 +18,30 @@
     .badge-not_now    { background: #2d2a00; color: #fde047; }
     .badge-objection  { background: #2d1b00; color: #fb923c; }
     .badge-unsubscribe{ background: #2d1b1b; color: #f87171; }
+    .badge-out_of_office { background: #1e293b; color: #94a3b8; }
     .badge-other      { background: #1e293b; color: #94a3b8; }
-    .pipeline-step { position: relative; }
-    .pipeline-step:not(:last-child)::after {
-      content: '→'; position: absolute; right: -12px; top: 50%;
-      transform: translateY(-50%); color: #475569; font-size: 12px;
-    }
     .tab-active { border-bottom: 2px solid #6366f1; color: #818cf8; }
     .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
     .tab-inactive:hover { color: #94a3b8; }
-    .btn-primary { background: #6366f1; color: white; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: background 0.15s; }
+    .btn-primary { background: #6366f1; color: white; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: background 0.15s; display:inline-block; }
     .btn-primary:hover { background: #4f46e5; }
     .btn-secondary { background: #334155; color: #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
     .btn-secondary:hover { background: #475569; }
-    .btn-danger { background: #dc2626; color: white; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .btn-success { background: #059669; color: white; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .btn-success:hover { background: #047857; }
     input, select, textarea { background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 8px 12px; width: 100%; font-size: 14px; }
     input:focus, select:focus, textarea:focus { outline: none; border-color: #6366f1; }
     .spinner { border: 3px solid #334155; border-top: 3px solid #6366f1; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; max-width: 360px; }
     .toast-success { background: #065f46; border: 1px solid #059669; color: #d1fae5; }
     .toast-error   { background: #7f1d1d; border: 1px solid #dc2626; color: #fee2e2; }
+    .toast-info    { background: #1e3a5f; border: 1px solid #3b82f6; color: #bfdbfe; }
     @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     .prose-dark { color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; font-size: 13px; }
     .pipeline-bar { height: 8px; border-radius: 4px; transition: width 0.5s; }
+    .step-sent { opacity: 0.6; }
+    .step-pending { border-left: 3px solid #6366f1; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -50,65 +49,55 @@
 <!-- Header -->
 <div class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
   <div class="flex items-center gap-3">
-    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-      <i data-lucide="zap" class="w-4 h-4 text-white"></i>
-    </div>
+    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">⚡</div>
     <div>
       <h1 class="text-lg font-bold text-white">Sales Pipeline Agent</h1>
       <p class="text-xs text-slate-500">Autonomous AI-Powered Revenue Generation</p>
     </div>
   </div>
   <div class="flex items-center gap-2">
-    <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
     <span class="text-sm text-slate-400">Agent Online</span>
   </div>
 </div>
 
-<!-- Nav Tabs -->
+<!-- Nav -->
 <div class="border-b border-slate-700 px-6 flex gap-6">
-  <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active py-3 text-sm font-medium transition-colors">Dashboard</button>
-  <button onclick="showTab('campaigns')" id="tab-campaigns" class="tab-inactive py-3 text-sm font-medium transition-colors">Campaigns</button>
-  <button onclick="showTab('prospects')" id="tab-prospects" class="tab-inactive py-3 text-sm font-medium transition-colors">Prospects</button>
-  <button onclick="showTab('inbox')" id="tab-inbox" class="tab-inactive py-3 text-sm font-medium transition-colors">Reply Inbox</button>
+  <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active py-3 text-sm font-medium">Dashboard</button>
+  <button onclick="showTab('campaigns')" id="tab-campaigns" class="tab-inactive py-3 text-sm font-medium">Campaigns</button>
+  <button onclick="showTab('prospects')" id="tab-prospects" class="tab-inactive py-3 text-sm font-medium">Prospects</button>
+  <button onclick="showTab('inbox')" id="tab-inbox" class="tab-inactive py-3 text-sm font-medium">Reply Inbox</button>
+  <button onclick="showTab('meetings')" id="tab-meetings" class="tab-inactive py-3 text-sm font-medium">Meetings</button>
 </div>
 
 <div class="p-6 max-w-7xl mx-auto">
 
-  <!-- ===== DASHBOARD TAB ===== -->
+  <!-- DASHBOARD -->
   <div id="view-dashboard">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <div class="card p-4">
-        <p class="text-xs text-slate-500 mb-1">Total Prospects</p>
-        <p class="text-2xl font-bold text-white" id="stat-prospects">—</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="card p-4"><p class="text-xs text-slate-500 mb-1">Prospects</p><p class="text-2xl font-bold text-white" id="stat-prospects">—</p></div>
+      <div class="card p-4"><p class="text-xs text-slate-500 mb-1">Campaigns</p><p class="text-2xl font-bold text-white" id="stat-campaigns">—</p></div>
+      <div class="card p-4"><p class="text-xs text-slate-500 mb-1">Reply Rate</p><p class="text-2xl font-bold text-emerald-400" id="stat-reply-rate">—</p></div>
+      <div class="card p-4"><p class="text-xs text-slate-500 mb-1">Meetings</p><p class="text-2xl font-bold text-indigo-400" id="stat-meetings">—</p></div>
+      <div class="card p-4"><p class="text-xs text-slate-500 mb-1">Meeting Rate</p><p class="text-2xl font-bold text-violet-400" id="stat-meeting-rate">—</p></div>
+    </div>
+    <div class="grid grid-cols-2 gap-6 mb-6">
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4">Pipeline Funnel</h3>
+        <div id="pipeline-funnel" class="space-y-3"></div>
       </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-500 mb-1">Active Campaigns</p>
-        <p class="text-2xl font-bold text-white" id="stat-campaigns">—</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-500 mb-1">Reply Rate</p>
-        <p class="text-2xl font-bold text-emerald-400" id="stat-reply-rate">—</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-500 mb-1">Meetings Booked</p>
-        <p class="text-2xl font-bold text-indigo-400" id="stat-meetings">—</p>
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4">Reply Breakdown</h3>
+        <div id="reply-breakdown" class="space-y-2"></div>
       </div>
     </div>
-
-    <!-- Pipeline Funnel -->
-    <div class="card p-5 mb-6">
-      <h3 class="text-sm font-semibold text-slate-300 mb-4">Pipeline Funnel</h3>
-      <div id="pipeline-funnel" class="space-y-3"></div>
-    </div>
-
-    <!-- Activity Feed -->
     <div class="card p-5">
       <h3 class="text-sm font-semibold text-slate-300 mb-4">Recent Agent Activity</h3>
-      <div id="activity-feed" class="space-y-2 text-sm"></div>
+      <div id="activity-feed" class="space-y-1 text-sm"></div>
     </div>
   </div>
 
-  <!-- ===== CAMPAIGNS TAB ===== -->
+  <!-- CAMPAIGNS -->
   <div id="view-campaigns" class="hidden">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-semibold">Campaigns</h2>
@@ -117,9 +106,9 @@
     <div id="campaigns-list" class="space-y-3"></div>
   </div>
 
-  <!-- ===== PROSPECTS TAB ===== -->
+  <!-- PROSPECTS -->
   <div id="view-prospects" class="hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <div class="flex items-center gap-3">
         <h2 class="text-lg font-semibold">Prospects</h2>
         <select id="filter-campaign" onchange="loadProspects()" class="text-sm w-48">
@@ -135,25 +124,26 @@
           <option value="disqualified">Disqualified</option>
         </select>
       </div>
-      <button class="btn-primary" onclick="showModal('modal-new-prospect')">+ Add Prospect</button>
+      <div class="flex gap-2">
+        <button class="btn-secondary text-sm" onclick="showModal('modal-csv-import')">📥 CSV Import</button>
+        <button class="btn-primary" onclick="showModal('modal-new-prospect')">+ Add Prospect</button>
+      </div>
     </div>
     <div id="prospects-list" class="space-y-2"></div>
   </div>
 
-  <!-- ===== INBOX TAB ===== -->
+  <!-- INBOX -->
   <div id="view-inbox" class="hidden">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold">Reply Inbox — Simulate Inbound Reply</h2>
+      <h2 class="text-lg font-semibold">Reply Inbox — AI Classification</h2>
     </div>
     <div class="grid grid-cols-2 gap-6">
       <div class="card p-5">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Submit a Reply for AI Classification</h3>
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Submit Reply for Analysis</h3>
         <div class="space-y-3">
           <div>
             <label class="text-xs text-slate-400">Prospect</label>
-            <select id="reply-prospect-id" class="mt-1">
-              <option value="">Select prospect...</option>
-            </select>
+            <select id="reply-prospect-id" class="mt-1"><option value="">Select prospect...</option></select>
           </div>
           <div>
             <label class="text-xs text-slate-400">Channel</label>
@@ -166,23 +156,34 @@
             <label class="text-xs text-slate-400">Reply Content</label>
             <textarea id="reply-content" rows="6" placeholder="Paste the prospect's reply here..." class="mt-1"></textarea>
           </div>
+          <div class="grid grid-cols-3 gap-2 text-xs text-slate-400 mb-1">
+            <span class="cursor-pointer hover:text-white" onclick="fillSample('interested')">😊 Interested</span>
+            <span class="cursor-pointer hover:text-white" onclick="fillSample('not_now')">⏰ Not Now</span>
+            <span class="cursor-pointer hover:text-white" onclick="fillSample('objection')">💬 Objection</span>
+          </div>
           <button class="btn-primary w-full" onclick="submitReply()">
-            <span id="reply-btn-text">Classify with AI</span>
+            <span id="reply-btn-text">Classify with AI ⚡</span>
           </button>
         </div>
       </div>
       <div class="card p-5">
         <h3 class="text-sm font-semibold text-slate-300 mb-3">AI Analysis</h3>
-        <div id="reply-result" class="text-slate-500 text-sm italic">Submit a reply to see AI classification...</div>
+        <div id="reply-result" class="text-slate-500 text-sm italic">Submit a reply to see AI classification and drafted response...</div>
       </div>
     </div>
+  </div>
+
+  <!-- MEETINGS -->
+  <div id="view-meetings" class="hidden">
+    <h2 class="text-lg font-semibold mb-4">Meetings Booked</h2>
+    <div id="meetings-list" class="space-y-3"></div>
   </div>
 
 </div>
 
 <!-- ===== MODALS ===== -->
 
-<!-- New Campaign Modal -->
+<!-- New Campaign -->
 <div id="modal-new-campaign" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
   <div class="card p-6 w-full max-w-lg">
     <div class="flex items-center justify-between mb-4">
@@ -190,21 +191,11 @@
       <button onclick="hideModal('modal-new-campaign')" class="text-slate-400 hover:text-white">✕</button>
     </div>
     <div class="space-y-3">
-      <div>
-        <label class="text-xs text-slate-400">Campaign Name *</label>
-        <input id="c-name" placeholder="e.g. Q2 SaaS Outreach" class="mt-1" />
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">ICP Definition</label>
-        <textarea id="c-icp" rows="2" placeholder="e.g. B2B SaaS companies, 50-500 employees, Series A/B funded, VP Sales or CRO" class="mt-1"></textarea>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">Value Proposition *</label>
-        <textarea id="c-value" rows="3" placeholder="e.g. We help B2B SaaS companies 10x their outbound pipeline with AI-powered personalization at scale..." class="mt-1"></textarea>
-      </div>
+      <div><label class="text-xs text-slate-400">Campaign Name *</label><input id="c-name" placeholder="Q2 SaaS Outreach" class="mt-1" /></div>
+      <div><label class="text-xs text-slate-400">ICP Definition</label><textarea id="c-icp" rows="2" placeholder="B2B SaaS, 50-500 employees, Series A/B, VP Sales or CRO" class="mt-1"></textarea></div>
+      <div><label class="text-xs text-slate-400">Value Proposition *</label><textarea id="c-value" rows="3" placeholder="We help B2B SaaS companies 10x their outbound pipeline with AI..." class="mt-1"></textarea></div>
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-slate-400">Tone</label>
+        <div><label class="text-xs text-slate-400">Tone</label>
           <select id="c-tone" class="mt-1">
             <option value="professional">Professional</option>
             <option value="conversational">Conversational</option>
@@ -212,17 +203,14 @@
             <option value="warm">Warm</option>
           </select>
         </div>
-        <div>
-          <label class="text-xs text-slate-400">Daily Send Limit</label>
-          <input id="c-limit" type="number" value="50" class="mt-1" />
-        </div>
+        <div><label class="text-xs text-slate-400">Daily Send Limit</label><input id="c-limit" type="number" value="50" class="mt-1" /></div>
       </div>
       <button class="btn-primary w-full mt-2" onclick="createCampaign()">Create Campaign</button>
     </div>
   </div>
 </div>
 
-<!-- New Prospect Modal -->
+<!-- New Prospect -->
 <div id="modal-new-prospect" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
   <div class="card p-6 w-full max-w-lg">
     <div class="flex items-center justify-between mb-4">
@@ -231,48 +219,46 @@
     </div>
     <div class="space-y-3">
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-slate-400">First Name *</label>
-          <input id="p-first" placeholder="Sarah" class="mt-1" />
-        </div>
-        <div>
-          <label class="text-xs text-slate-400">Last Name *</label>
-          <input id="p-last" placeholder="Chen" class="mt-1" />
-        </div>
+        <div><label class="text-xs text-slate-400">First Name *</label><input id="p-first" placeholder="Sarah" class="mt-1" /></div>
+        <div><label class="text-xs text-slate-400">Last Name *</label><input id="p-last" placeholder="Chen" class="mt-1" /></div>
       </div>
-      <div>
-        <label class="text-xs text-slate-400">Email *</label>
-        <input id="p-email" type="email" placeholder="sarah@acmecorp.com" class="mt-1" />
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">Title</label>
-        <input id="p-title" placeholder="VP of Sales" class="mt-1" />
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">Company</label>
-        <input id="p-company" placeholder="Acme Corp" class="mt-1" />
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">LinkedIn URL</label>
-        <input id="p-linkedin" placeholder="https://linkedin.com/in/..." class="mt-1" />
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">Campaign</label>
-        <select id="p-campaign" class="mt-1">
-          <option value="">No campaign</option>
-        </select>
-      </div>
+      <div><label class="text-xs text-slate-400">Email *</label><input id="p-email" type="email" placeholder="sarah@acmecorp.com" class="mt-1" /></div>
+      <div><label class="text-xs text-slate-400">Title</label><input id="p-title" placeholder="VP of Sales" class="mt-1" /></div>
+      <div><label class="text-xs text-slate-400">Company</label><input id="p-company" placeholder="Acme Corp" class="mt-1" /></div>
+      <div><label class="text-xs text-slate-400">LinkedIn URL</label><input id="p-linkedin" placeholder="https://linkedin.com/in/..." class="mt-1" /></div>
+      <div><label class="text-xs text-slate-400">Campaign</label><select id="p-campaign" class="mt-1"><option value="">No campaign</option></select></div>
       <div class="flex gap-2 mt-2">
         <button class="btn-secondary flex-1" onclick="createProspect(false)">Add Only</button>
-        <button class="btn-primary flex-1" onclick="createProspect(true)">Add & Enroll with AI ⚡</button>
+        <button class="btn-primary flex-1" onclick="createProspect(true)">Add & Enroll ⚡</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Prospect Detail Modal -->
+<!-- CSV Import -->
+<div id="modal-csv-import" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+  <div class="card p-6 w-full max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">CSV Bulk Import</h3>
+      <button onclick="hideModal('modal-csv-import')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div class="bg-slate-800 rounded-lg p-3 text-xs text-slate-400">
+        <p class="font-semibold text-slate-300 mb-1">Required CSV columns:</p>
+        <code>email, first_name, last_name, title, company, linkedin_url</code>
+      </div>
+      <div><label class="text-xs text-slate-400">Campaign (optional)</label><select id="csv-campaign" class="mt-1"><option value="">No campaign</option></select></div>
+      <div><label class="text-xs text-slate-400">CSV Data (paste below)</label>
+        <textarea id="csv-text" rows="8" placeholder="email,first_name,last_name,title,company,linkedin_url&#10;sarah@acme.com,Sarah,Chen,VP Sales,Acme Corp,https://linkedin.com/in/schen" class="mt-1 font-mono text-xs"></textarea>
+      </div>
+      <button class="btn-primary w-full" onclick="bulkImport()">Import Prospects</button>
+    </div>
+  </div>
+</div>
+
+<!-- Prospect Detail -->
 <div id="modal-prospect-detail" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+  <div class="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold" id="detail-title">Prospect Details</h3>
       <button onclick="hideModal('modal-prospect-detail')" class="text-slate-400 hover:text-white">✕</button>
@@ -283,19 +269,26 @@
 
 <script>
 const API = '';
+const SAMPLES = {
+  interested: "Hi, thanks for reaching out! This looks really relevant to what we're working on. Happy to learn more — what does the onboarding process look like?",
+  not_now: "Appreciate you reaching out. We're actually in the middle of a big initiative right now, so the timing isn't great. Maybe touch base again in Q3?",
+  objection: "We actually already use [Competitor] for this. We've been pretty happy with them so far. Why would we switch?",
+};
 
 // ─── Utility ───────────────────────────────────────────────────────────────
+
 function showTab(name) {
-  ['dashboard','campaigns','prospects','inbox'].forEach(t => {
+  ['dashboard','campaigns','prospects','inbox','meetings'].forEach(t => {
     document.getElementById('view-' + t).classList.add('hidden');
-    document.getElementById('tab-' + t).className = 'tab-inactive py-3 text-sm font-medium transition-colors';
+    document.getElementById('tab-' + t).className = 'tab-inactive py-3 text-sm font-medium';
   });
   document.getElementById('view-' + name).classList.remove('hidden');
-  document.getElementById('tab-' + name).className = 'tab-active py-3 text-sm font-medium transition-colors';
+  document.getElementById('tab-' + name).className = 'tab-active py-3 text-sm font-medium';
   if (name === 'dashboard') loadDashboard();
   if (name === 'campaigns') loadCampaigns();
-  if (name === 'prospects') loadProspects();
+  if (name === 'prospects') { loadProspectDropdowns(); loadProspects(); }
   if (name === 'inbox') loadInboxProspects();
+  if (name === 'meetings') loadMeetings();
 }
 
 function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
@@ -306,12 +299,15 @@ function toast(msg, type = 'success') {
   el.className = `toast toast-${type}`;
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), 4000);
 }
 
 function badge(status) {
-  const label = status.replace(/_/g,' ');
-  return `<span class="badge-${status} px-2 py-0.5 rounded-full text-xs font-medium capitalize">${label}</span>`;
+  return `<span class="badge-${status} px-2 py-0.5 rounded-full text-xs font-medium capitalize">${status.replace(/_/g,' ')}</span>`;
+}
+
+function fillSample(type) {
+  document.getElementById('reply-content').value = SAMPLES[type] || '';
 }
 
 async function api(path, opts = {}) {
@@ -324,6 +320,7 @@ async function api(path, opts = {}) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────
+
 async function loadDashboard() {
   try {
     const data = await api('/api/analytics/dashboard');
@@ -332,19 +329,18 @@ async function loadDashboard() {
     document.getElementById('stat-campaigns').textContent = s.total_campaigns;
     document.getElementById('stat-reply-rate').textContent = s.reply_rate_pct + '%';
     document.getElementById('stat-meetings').textContent = s.total_meetings;
+    document.getElementById('stat-meeting-rate').textContent = s.meeting_rate_pct + '%';
 
-    // Pipeline funnel
-    const funnel = document.getElementById('pipeline-funnel');
     const stages = [
       { key:'new', label:'New', color:'#3b82f6' },
       { key:'researching', label:'Researching', color:'#8b5cf6' },
-      { key:'sequencing', label:'Sequencing', color:'#10b981' },
+      { key:'sequencing', label:'In Sequence', color:'#10b981' },
       { key:'responded', label:'Responded', color:'#f59e0b' },
       { key:'meeting_booked', label:'Meeting Booked', color:'#22c55e' },
       { key:'disqualified', label:'Disqualified', color:'#ef4444' },
     ];
     const maxVal = Math.max(...stages.map(s => data.pipeline[s.key] || 0), 1);
-    funnel.innerHTML = stages.map(s => {
+    document.getElementById('pipeline-funnel').innerHTML = stages.map(s => {
       const v = data.pipeline[s.key] || 0;
       const pct = Math.round((v / maxVal) * 100);
       return `<div class="flex items-center gap-3">
@@ -356,81 +352,75 @@ async function loadDashboard() {
       </div>`;
     }).join('');
 
-    // Activity feed
+    const replyColors = { interested:'#22c55e', not_now:'#eab308', objection:'#f97316', unsubscribe:'#ef4444', wrong_person:'#f97316', out_of_office:'#64748b', other:'#64748b' };
+    const replyEl = document.getElementById('reply-breakdown');
+    const replies = data.replies;
+    const totalReplies = Object.values(replies).reduce((a, b) => a + b, 0) || 1;
+    replyEl.innerHTML = Object.entries(replies).length ? Object.entries(replies).map(([k, v]) => `
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-400 capitalize w-28">${k.replace(/_/g,' ')}</span>
+        <div class="flex-1 bg-slate-700 rounded-full h-2">
+          <div class="pipeline-bar rounded-full" style="width:${Math.round(v/totalReplies*100)}%;background:${replyColors[k]||'#64748b'}"></div>
+        </div>
+        <span class="text-xs font-semibold w-4 text-right">${v}</span>
+      </div>`).join('') : '<p class="text-slate-500 text-xs">No replies yet</p>';
+
     const feed = document.getElementById('activity-feed');
-    if (!data.recent_activity.length) {
-      feed.innerHTML = '<p class="text-slate-500 text-sm">No activity yet. Create a campaign and enroll prospects to get started.</p>';
-    } else {
-      feed.innerHTML = data.recent_activity.map(a =>
-        `<div class="flex items-center gap-2 text-xs text-slate-400 py-1 border-b border-slate-700/50">
-          <span class="text-indigo-400 font-mono">${a.agent}</span>
-          <span>→</span>
-          <span class="text-slate-300">${a.action}</span>
-          ${a.prospect_id ? `<span class="text-slate-500">prospect #${a.prospect_id}</span>` : ''}
+    feed.innerHTML = data.recent_activity.length
+      ? data.recent_activity.map(a => `
+        <div class="flex items-center gap-2 text-xs py-1 border-b border-slate-700/30">
+          <span class="text-indigo-400 font-mono w-44 flex-shrink-0">${a.agent}</span>
+          <span class="text-slate-300">${a.action.replace(/_/g,' ')}</span>
+          ${a.prospect_id ? `<span class="text-slate-500">· prospect #${a.prospect_id}</span>` : ''}
           <span class="ml-auto text-slate-600">${new Date(a.time).toLocaleTimeString()}</span>
-        </div>`
-      ).join('');
-    }
-  } catch(e) {
-    console.error(e);
-  }
+        </div>`).join('')
+      : '<p class="text-slate-500 text-sm">No activity yet. Create a campaign and enroll a prospect to start.</p>';
+  } catch(e) { console.error(e); }
 }
 
 // ─── Campaigns ─────────────────────────────────────────────────────────────
+
 async function loadCampaigns() {
   const list = document.getElementById('campaigns-list');
   list.innerHTML = '<p class="text-slate-500 text-sm">Loading...</p>';
   try {
     const campaigns = await api('/api/campaigns/');
-    if (!campaigns.length) {
-      list.innerHTML = '<div class="card p-6 text-center text-slate-500 text-sm">No campaigns yet. Create your first one to start automated outreach.</div>';
-      return;
-    }
-    list.innerHTML = campaigns.map(c => `
+    list.innerHTML = campaigns.length ? campaigns.map(c => `
       <div class="card p-4 flex items-center justify-between">
         <div class="flex-1">
           <div class="flex items-center gap-2 mb-1">
             <span class="font-medium text-white">${c.name}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full ${c.status === 'active' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${c.status}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${c.status === 'active' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${c.status}</span>
           </div>
-          <p class="text-xs text-slate-500">${c.icp_definition || 'No ICP defined'}</p>
-          <p class="text-xs text-slate-500 mt-0.5">${c.value_prop ? c.value_prop.substring(0,80) + '...' : 'No value prop'}</p>
+          <p class="text-xs text-slate-500">${c.icp_definition || 'No ICP'}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${c.value_prop ? c.value_prop.substring(0,100) + '...' : ''}</p>
         </div>
         <div class="text-right ml-4">
           <p class="text-2xl font-bold text-white">${c.prospect_count}</p>
           <p class="text-xs text-slate-500">prospects</p>
+          <p class="text-xs text-slate-600 mt-1">${c.tone} · ${c.daily_send_limit}/day</p>
         </div>
       </div>
-    `).join('');
-  } catch(e) {
-    list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`;
-  }
+    `).join('') : '<div class="card p-6 text-center text-slate-500 text-sm">No campaigns yet.</div>';
+  } catch(e) { list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`; }
 }
 
 async function createCampaign() {
   const name = document.getElementById('c-name').value.trim();
-  const value_prop = document.getElementById('c-value').value.trim();
-  if (!name) return toast('Campaign name is required', 'error');
+  if (!name) return toast('Campaign name required', 'error');
   try {
-    await api('/api/campaigns/', {
-      method: 'POST',
-      body: JSON.stringify({
-        name,
-        icp_definition: document.getElementById('c-icp').value,
-        value_prop,
-        tone: document.getElementById('c-tone').value,
-        daily_send_limit: parseInt(document.getElementById('c-limit').value) || 50,
-      }),
-    });
-    hideModal('modal-new-campaign');
-    toast('Campaign created!');
-    loadCampaigns();
-  } catch(e) {
-    toast(e.message, 'error');
-  }
+    await api('/api/campaigns/', { method: 'POST', body: JSON.stringify({
+      name, icp_definition: document.getElementById('c-icp').value,
+      value_prop: document.getElementById('c-value').value,
+      tone: document.getElementById('c-tone').value,
+      daily_send_limit: parseInt(document.getElementById('c-limit').value) || 50,
+    })});
+    hideModal('modal-new-campaign'); toast('Campaign created!'); loadCampaigns();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 // ─── Prospects ─────────────────────────────────────────────────────────────
+
 async function loadProspects() {
   const list = document.getElementById('prospects-list');
   list.innerHTML = '<p class="text-slate-500 text-sm">Loading...</p>';
@@ -441,50 +431,37 @@ async function loadProspects() {
   if (status) url += `status=${status}&`;
   try {
     const prospects = await api(url);
-    if (!prospects.length) {
-      list.innerHTML = '<div class="card p-6 text-center text-slate-500 text-sm">No prospects found. Add prospects and enroll them to start AI-powered outreach.</div>';
-      return;
-    }
-    list.innerHTML = prospects.map(p => `
-      <div class="card p-4 flex items-center justify-between cursor-pointer hover:border-slate-500 transition-colors"
-           onclick="viewProspect(${p.id})">
-        <div class="flex items-center gap-3 flex-1">
+    list.innerHTML = prospects.length ? prospects.map(p => `
+      <div class="card p-4 flex items-center justify-between cursor-pointer hover:border-slate-500 transition-colors" onclick="viewProspect(${p.id})">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
           <div class="w-9 h-9 rounded-full bg-indigo-700 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
             ${p.first_name[0]}${p.last_name[0]}
           </div>
-          <div>
+          <div class="min-w-0">
             <p class="font-medium text-white">${p.first_name} ${p.last_name}</p>
-            <p class="text-xs text-slate-400">${p.title || ''} ${p.company ? '@ ' + p.company : ''}</p>
+            <p class="text-xs text-slate-400 truncate">${p.title || ''} ${p.company ? '@ ' + p.company : ''}</p>
           </div>
         </div>
-        <div class="flex items-center gap-3 ml-4">
-          ${p.score ? `<span class="text-xs font-bold ${p.score >= 80 ? 'text-emerald-400' : p.score >= 60 ? 'text-yellow-400' : 'text-slate-400'}">Score: ${p.score}</span>` : ''}
+        <div class="flex items-center gap-3 ml-4 flex-shrink-0">
+          ${p.score ? `<span class="text-xs font-bold ${p.score>=80?'text-emerald-400':p.score>=60?'text-yellow-400':'text-slate-400'}">${p.score}</span>` : ''}
           ${badge(p.status)}
-          ${p.status === 'new' ? `<button class="btn-primary text-xs py-1 px-3" onclick="event.stopPropagation(); enrollProspect(${p.id})">Enroll ⚡</button>` : ''}
+          ${p.status === 'new' ? `<button class="btn-primary text-xs py-1 px-3" onclick="event.stopPropagation();enrollProspect(${p.id})">Enroll ⚡</button>` : ''}
+          ${p.status === 'sequencing' ? `<button class="btn-success text-xs" onclick="event.stopPropagation();sendNextStep(${p.id})">Send Step →</button>` : ''}
         </div>
       </div>
-    `).join('');
-  } catch(e) {
-    list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`;
-  }
+    `).join('') : '<div class="card p-6 text-center text-slate-500 text-sm">No prospects found.</div>';
+  } catch(e) { list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`; }
 }
 
 async function loadProspectDropdowns() {
   try {
     const campaigns = await api('/api/campaigns/');
-    const selects = ['p-campaign', 'filter-campaign'];
-    selects.forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const extra = el.querySelector('option[value=""]');
+    ['p-campaign','filter-campaign','csv-campaign'].forEach(id => {
+      const el = document.getElementById(id); if (!el) return;
+      const first = el.querySelector('option[value=""]');
       el.innerHTML = '';
-      if (extra) el.appendChild(extra.cloneNode(true));
-      campaigns.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        el.appendChild(opt);
-      });
+      if (first) el.appendChild(first.cloneNode(true));
+      campaigns.forEach(c => { const o = document.createElement('option'); o.value=c.id; o.textContent=c.name; el.appendChild(o); });
     });
   } catch(e) {}
 }
@@ -493,38 +470,50 @@ async function createProspect(andEnroll) {
   const email = document.getElementById('p-email').value.trim();
   const first_name = document.getElementById('p-first').value.trim();
   const last_name = document.getElementById('p-last').value.trim();
-  if (!email || !first_name || !last_name) return toast('Email, first and last name are required', 'error');
+  if (!email || !first_name || !last_name) return toast('Email, first and last name required', 'error');
   try {
-    const p = await api('/api/prospects/', {
-      method: 'POST',
-      body: JSON.stringify({
-        email, first_name, last_name,
-        title: document.getElementById('p-title').value,
-        company: document.getElementById('p-company').value,
-        linkedin_url: document.getElementById('p-linkedin').value,
-        campaign_id: document.getElementById('p-campaign').value || null,
-      }),
-    });
+    const p = await api('/api/prospects/', { method: 'POST', body: JSON.stringify({
+      email, first_name, last_name,
+      title: document.getElementById('p-title').value,
+      company: document.getElementById('p-company').value,
+      linkedin_url: document.getElementById('p-linkedin').value,
+      campaign_id: document.getElementById('p-campaign').value || null,
+    })});
     hideModal('modal-new-prospect');
     toast(`Prospect added${andEnroll ? ', enrolling...' : '!'}`);
-    if (andEnroll && p.id) {
-      await enrollProspect(p.id);
-    }
+    if (andEnroll && p.id) await enrollProspect(p.id);
     loadProspects();
-  } catch(e) {
-    toast(e.message, 'error');
-  }
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function bulkImport() {
+  const csv_text = document.getElementById('csv-text').value.trim();
+  const campaign_id = document.getElementById('csv-campaign').value || null;
+  if (!csv_text) return toast('Paste CSV data first', 'error');
+  try {
+    const result = await api('/api/prospects/bulk', { method: 'POST', body: JSON.stringify({ csv_text, campaign_id: campaign_id ? parseInt(campaign_id) : null }) });
+    hideModal('modal-csv-import');
+    toast(`Imported ${result.created} prospects, skipped ${result.skipped} duplicates`);
+    if (result.errors.length) toast(`${result.errors.length} rows had errors`, 'error');
+    loadProspects();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function enrollProspect(id) {
   try {
     await api(`/api/prospects/${id}/enroll`, { method: 'POST' });
-    toast('AI pipeline started! Research & sequence generation running in background... ⚡');
-    setTimeout(() => loadProspects(), 2000);
-    setTimeout(() => loadDashboard(), 5000);
-  } catch(e) {
-    toast(e.message, 'error');
-  }
+    toast('AI pipeline started! Research & sequence generating... ⚡', 'info');
+    setTimeout(loadProspects, 2000);
+    setTimeout(loadDashboard, 6000);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function sendNextStep(id) {
+  try {
+    await api(`/api/prospects/${id}/send-next-step`, { method: 'POST' });
+    toast('Sending next sequence step...', 'info');
+    setTimeout(loadProspects, 2000);
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function viewProspect(id) {
@@ -532,134 +521,127 @@ async function viewProspect(id) {
   content.innerHTML = '<div class="flex justify-center py-8"><div class="spinner"></div></div>';
   showModal('modal-prospect-detail');
   try {
-    const [p, seqData] = await Promise.all([
+    const [p, seqData, replies, meetings] = await Promise.all([
       api(`/api/prospects/${id}`),
       api(`/api/prospects/${id}/sequence`).catch(() => null),
+      api(`/api/prospects/${id}/replies`).catch(() => []),
+      api(`/api/prospects/${id}/meetings`).catch(() => []),
     ]);
     document.getElementById('detail-title').textContent = `${p.first_name} ${p.last_name}`;
 
     const hooks = p.personalization_hooks || [];
     const profile = p.research_profile || {};
-    const seq = seqData?.steps || [];
+    const steps = seqData?.steps || [];
+
+    const sentSteps = steps.filter(s => s.sent_at);
+    const pendingSteps = steps.filter(s => !s.sent_at);
 
     content.innerHTML = `
       <div class="space-y-5">
-        <!-- Profile header -->
+        <!-- Header -->
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-full bg-indigo-700 flex items-center justify-center text-lg font-bold text-white">
-            ${p.first_name[0]}${p.last_name[0]}
-          </div>
-          <div>
+          <div class="w-12 h-12 rounded-full bg-indigo-700 flex items-center justify-center text-lg font-bold text-white">${p.first_name[0]}${p.last_name[0]}</div>
+          <div class="flex-1">
             <p class="font-semibold text-white text-lg">${p.first_name} ${p.last_name}</p>
-            <p class="text-sm text-slate-400">${p.title || ''} ${p.company ? '@ ' + p.company : ''}</p>
+            <p class="text-sm text-slate-400">${p.title||''} ${p.company?'@ '+p.company:''}</p>
             <p class="text-xs text-slate-500">${p.email}</p>
           </div>
-          <div class="ml-auto">${badge(p.status)}</div>
+          <div class="flex flex-col items-end gap-1">
+            ${badge(p.status)}
+            ${p.status==='new'?`<button class="btn-primary text-xs py-1 px-3 mt-1" onclick="hideModal('modal-prospect-detail');enrollProspect(${p.id})">Start AI Pipeline ⚡</button>`:''}
+            ${p.status==='sequencing'?`<button class="btn-success text-xs mt-1" onclick="hideModal('modal-prospect-detail');sendNextStep(${p.id})">Send Next Step →</button>`:''}
+          </div>
         </div>
 
-        <!-- Fit score -->
         ${p.score ? `
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs text-slate-400">Fit Score</span>
-            <span class="text-sm font-bold ${p.score >= 80 ? 'text-emerald-400' : p.score >= 60 ? 'text-yellow-400' : 'text-red-400'}">${p.score}/100</span>
-          </div>
-          <div class="bg-slate-700 rounded-full h-2">
-            <div class="h-2 rounded-full ${p.score >= 80 ? 'bg-emerald-500' : p.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}" style="width:${p.score}%"></div>
-          </div>
+          <div class="flex justify-between mb-1"><span class="text-xs text-slate-400">Fit Score</span><span class="text-sm font-bold ${p.score>=80?'text-emerald-400':p.score>=60?'text-yellow-400':'text-red-400'}">${p.score}/100</span></div>
+          <div class="bg-slate-700 rounded-full h-2"><div class="h-2 rounded-full ${p.score>=80?'bg-emerald-500':p.score>=60?'bg-yellow-500':'bg-red-500'}" style="width:${p.score}%"></div></div>
         </div>` : ''}
 
-        <!-- Research profile -->
-        ${profile.research_summary ? `
-        <div>
-          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Research Summary</h4>
-          <p class="text-sm text-slate-300">${profile.research_summary}</p>
-        </div>` : ''}
+        ${profile.research_summary?`<div><h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Research Summary</h4><p class="text-sm text-slate-300">${profile.research_summary}</p></div>`:''}
 
-        ${profile.funding_stage ? `
+        ${profile.funding_stage?`
         <div class="grid grid-cols-3 gap-3">
-          <div class="bg-slate-800 rounded-lg p-3">
-            <p class="text-xs text-slate-500">Funding Stage</p>
-            <p class="text-sm font-medium text-white">${profile.funding_stage}</p>
-          </div>
-          <div class="bg-slate-800 rounded-lg p-3">
-            <p class="text-xs text-slate-500">Employees</p>
-            <p class="text-sm font-medium text-white">${profile.employee_count || '—'}</p>
-          </div>
-          <div class="bg-slate-800 rounded-lg p-3">
-            <p class="text-xs text-slate-500">Tech Stack</p>
-            <p class="text-sm font-medium text-white">${(profile.tech_stack || []).slice(0,3).join(', ')}</p>
-          </div>
-        </div>` : ''}
+          <div class="bg-slate-800 rounded-lg p-3"><p class="text-xs text-slate-500">Funding</p><p class="text-sm font-medium text-white">${profile.funding_stage}</p></div>
+          <div class="bg-slate-800 rounded-lg p-3"><p class="text-xs text-slate-500">Employees</p><p class="text-sm font-medium text-white">${profile.employee_count||'—'}</p></div>
+          <div class="bg-slate-800 rounded-lg p-3"><p class="text-xs text-slate-500">Tech Stack</p><p class="text-sm font-medium text-white">${(profile.tech_stack||[]).slice(0,3).join(', ')}</p></div>
+        </div>`:''}
 
-        <!-- Personalization hooks -->
-        ${hooks.length ? `
+        ${hooks.length?`
         <div>
           <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Personalization Hooks</h4>
-          <div class="space-y-1">
-            ${hooks.map(h => `<div class="flex items-start gap-2 text-sm text-slate-300">
-              <span class="text-indigo-400 mt-0.5">⚡</span><span>${h}</span>
-            </div>`).join('')}
-          </div>
-        </div>` : ''}
+          <div class="space-y-1">${hooks.map(h=>`<div class="flex gap-2 text-sm text-slate-300"><span class="text-indigo-400">⚡</span><span>${h}</span></div>`).join('')}</div>
+        </div>`:''}
 
-        <!-- Pain signals -->
-        ${(profile.pain_signals || []).length ? `
+        ${(profile.pain_signals||[]).length?`
         <div>
           <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pain Signals</h4>
-          <div class="flex flex-wrap gap-2">
-            ${profile.pain_signals.map(s => `<span class="bg-rose-900/40 text-rose-300 text-xs px-2 py-1 rounded-full">${s}</span>`).join('')}
-          </div>
-        </div>` : ''}
+          <div class="flex flex-wrap gap-2">${profile.pain_signals.map(s=>`<span class="bg-rose-900/40 text-rose-300 text-xs px-2 py-1 rounded-full">${s}</span>`).join('')}</div>
+        </div>`:''}
 
-        <!-- Sequence steps -->
-        ${seq.length ? `
+        ${steps.length?`
         <div>
-          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Outreach Sequence (${seq.length} steps)</h4>
-          <div class="space-y-3">
-            ${seq.map(s => `
-            <div class="bg-slate-800 rounded-lg p-3">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-bold text-indigo-400">Step ${s.step}</span>
-                <span class="text-xs px-2 py-0.5 rounded-full ${s.channel === 'email' ? 'bg-blue-900/50 text-blue-400' : 'bg-sky-900/50 text-sky-400'}">${s.channel}</span>
-                ${s.subject ? `<span class="text-xs text-slate-300 font-medium">${s.subject}</span>` : ''}
-                ${s.sent_at ? `<span class="ml-auto text-xs text-emerald-400">Sent ✓</span>` : ''}
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Outreach Sequence · <span class="text-emerald-400">${sentSteps.length} sent</span> · <span class="text-indigo-400">${pendingSteps.length} pending</span>
+          </h4>
+          <div class="space-y-2">
+            ${steps.map(s=>`
+            <div class="bg-slate-800 rounded-lg p-3 ${s.sent_at?'step-sent':'step-pending'}">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold ${s.sent_at?'text-emerald-400':'text-indigo-400'}">Step ${s.step}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full ${s.channel==='email'?'bg-blue-900/40 text-blue-400':'bg-sky-900/40 text-sky-400'}">${s.channel}</span>
+                ${s.subject?`<span class="text-xs text-slate-300 font-medium truncate">${s.subject}</span>`:''}
+                ${s.sent_at?`<span class="ml-auto text-xs text-emerald-400">✓ Sent ${new Date(s.sent_at).toLocaleDateString()}</span>`:
+                  `<span class="ml-auto text-xs text-slate-500">Pending</span>`}
               </div>
-              <p class="prose-dark">${s.body}</p>
+              <p class="prose-dark line-clamp-3">${s.body}</p>
             </div>`).join('')}
           </div>
-        </div>` : (p.status === 'researching' || p.status === 'new' ? '' : `
-        <div class="text-center py-4">
-          <button class="btn-primary" onclick="hideModal('modal-prospect-detail'); enrollProspect(${p.id})">
-            Generate Sequence with AI ⚡
-          </button>
-        </div>`)}
+        </div>`:''}
 
-        <!-- Enroll button if new -->
-        ${p.status === 'new' ? `
-        <div class="text-center pt-2">
-          <button class="btn-primary px-8" onclick="hideModal('modal-prospect-detail'); enrollProspect(${p.id})">
-            Start AI Pipeline ⚡
-          </button>
-        </div>` : ''}
+        ${replies.length?`
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Replies (${replies.length})</h4>
+          <div class="space-y-2">
+            ${replies.map(r=>`
+            <div class="bg-slate-800 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                ${r.classification?badge(r.classification):''}
+                <span class="text-xs text-slate-500">${new Date(r.created_at).toLocaleDateString()}</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-2">${r.raw_content.substring(0,200)}...</p>
+              ${r.draft_response?`<div class="border-t border-slate-700 pt-2 mt-2"><p class="text-xs text-slate-500 mb-1">Draft Response:</p><p class="prose-dark text-xs">${r.draft_response}</p></div>`:''}
+            </div>`).join('')}
+          </div>
+        </div>`:''}
+
+        ${meetings.length?`
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Meetings (${meetings.length})</h4>
+          ${meetings.map(m=>`
+          <div class="bg-emerald-900/30 border border-emerald-700/50 rounded-lg p-3">
+            <p class="text-sm font-medium text-emerald-400">📅 Meeting Booked</p>
+            ${m.scheduled_at?`<p class="text-xs text-slate-400">${new Date(m.scheduled_at).toLocaleString()}</p>`:'<p class="text-xs text-slate-500">Awaiting confirmation</p>'}
+          </div>`).join('')}
+        </div>`:''}
       </div>
     `;
-  } catch(e) {
-    content.innerHTML = `<p class="text-red-400">${e.message}</p>`;
-  }
+  } catch(e) { content.innerHTML = `<p class="text-red-400">${e.message}</p>`; }
 }
 
 // ─── Inbox ──────────────────────────────────────────────────────────────────
+
 async function loadInboxProspects() {
   try {
     const prospects = await api('/api/prospects/');
     const sel = document.getElementById('reply-prospect-id');
     sel.innerHTML = '<option value="">Select prospect...</option>';
-    prospects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = `${p.first_name} ${p.last_name} (${p.company || p.email})`;
-      sel.appendChild(opt);
+    prospects.filter(p => p.status !== 'disqualified').forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.first_name} ${p.last_name} (${p.company || p.email})`;
+      sel.appendChild(o);
     });
   } catch(e) {}
 }
@@ -668,71 +650,84 @@ async function submitReply() {
   const pid = document.getElementById('reply-prospect-id').value;
   const content = document.getElementById('reply-content').value.trim();
   if (!pid) return toast('Select a prospect', 'error');
-  if (!content) return toast('Enter the reply content', 'error');
-
+  if (!content) return toast('Enter reply content', 'error');
   const btn = document.getElementById('reply-btn-text');
-  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Classifying...';
-
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;vertical-align:middle"></span> Classifying...';
   try {
     const result = await api(`/api/prospects/${pid}/reply`, {
-      method: 'POST',
-      body: JSON.stringify({ content, channel: document.getElementById('reply-channel').value }),
+      method: 'POST', body: JSON.stringify({ content, channel: document.getElementById('reply-channel').value }),
     });
-
-    const classColors = {
-      interested: 'text-emerald-400', not_now: 'text-yellow-400',
-      wrong_person: 'text-orange-400', unsubscribe: 'text-red-400',
-      objection: 'text-orange-400', other: 'text-slate-400',
-    };
-    const sentimentIcons = { positive: '😊', neutral: '😐', negative: '😟' };
-
+    const icons = { interested:'😊', not_now:'⏰', objection:'💬', unsubscribe:'🚫', wrong_person:'🔀', out_of_office:'✈️', other:'🤔' };
+    const colors = { interested:'text-emerald-400', not_now:'text-yellow-400', objection:'text-orange-400', unsubscribe:'text-red-400', wrong_person:'text-orange-400', out_of_office:'text-slate-400', other:'text-slate-300' };
     document.getElementById('reply-result').innerHTML = `
       <div class="space-y-4">
         <div class="flex items-center gap-3">
-          <span class="text-2xl">${sentimentIcons[result.sentiment] || '🤔'}</span>
+          <span class="text-3xl">${icons[result.classification]||'🤔'}</span>
           <div>
-            <span class="text-lg font-bold ${classColors[result.classification] || 'text-white'} capitalize">
-              ${result.classification?.replace(/_/g,' ')}
-            </span>
+            <span class="text-xl font-bold ${colors[result.classification]||'text-white'} capitalize">${(result.classification||'').replace(/_/g,' ')}</span>
             <p class="text-xs text-slate-500 capitalize">Sentiment: ${result.sentiment}</p>
+            <p class="text-xs text-slate-500">Prospect status → ${(result.prospect_status||'').replace(/_/g,' ')}</p>
           </div>
         </div>
-        ${result.draft_response ? `
+        ${result.draft_response?`
         <div>
-          <p class="text-xs text-slate-400 mb-1 font-semibold uppercase tracking-wider">Suggested Reply Draft</p>
+          <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Suggested Reply</p>
           <div class="bg-slate-800 rounded-lg p-3 prose-dark">${result.draft_response}</div>
-        </div>` : ''}
-      </div>
-    `;
+        </div>`:
+        '<p class="text-slate-500 text-sm">No draft response needed for this reply type.</p>'}
+      </div>`;
     toast('Reply classified!');
-    loadProspects();
-    loadDashboard();
-  } catch(e) {
-    toast(e.message, 'error');
-  } finally {
-    btn.textContent = 'Classify with AI';
-  }
+    loadProspects(); loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.textContent = 'Classify with AI ⚡'; }
+}
+
+// ─── Meetings ───────────────────────────────────────────────────────────────
+
+async function loadMeetings() {
+  const list = document.getElementById('meetings-list');
+  list.innerHTML = '<p class="text-slate-500 text-sm">Loading...</p>';
+  try {
+    const prospects = await api('/api/prospects/?status=meeting_booked');
+    if (!prospects.length) {
+      list.innerHTML = '<div class="card p-6 text-center text-slate-500 text-sm">No meetings booked yet. When a prospect replies "Interested", the agent auto-books a meeting.</div>';
+      return;
+    }
+    const rows = await Promise.all(prospects.map(async p => {
+      const meetings = await api(`/api/prospects/${p.id}/meetings`).catch(() => []);
+      return { prospect: p, meetings };
+    }));
+    list.innerHTML = rows.map(({ prospect: p, meetings }) => `
+      <div class="card p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-sm font-bold text-white">${p.first_name[0]}${p.last_name[0]}</div>
+          <div>
+            <p class="font-medium text-white">${p.first_name} ${p.last_name}</p>
+            <p class="text-xs text-slate-400">${p.title||''} @ ${p.company||p.email}</p>
+          </div>
+        </div>
+        <div class="text-right">
+          ${meetings.map(m => `
+            <p class="text-sm text-emerald-400 font-medium">📅 ${m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : 'Awaiting confirmation'}</p>
+          `).join('') || '<p class="text-xs text-slate-500">No meeting details yet</p>'}
+          <p class="text-xs text-slate-500">Score: ${p.score||'—'}</p>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { list.innerHTML = `<p class="text-red-400">${e.message}</p>`; }
 }
 
 // ─── Init ───────────────────────────────────────────────────────────────────
+
+['modal-new-campaign','modal-new-prospect','modal-csv-import','modal-prospect-detail'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', e => { if (e.target === e.currentTarget) hideModal(id); });
+});
+
 async function init() {
-  lucide.createIcons();
   await loadProspectDropdowns();
   loadDashboard();
-  // Refresh dashboard every 10s during active operations
-  setInterval(loadDashboard, 10000);
+  setInterval(loadDashboard, 8000);
 }
-
-// Open modal hooks for prospect dropdowns
-document.getElementById('modal-new-prospect').addEventListener('click', e => {
-  if (e.target === e.currentTarget) hideModal('modal-new-prospect');
-});
-document.getElementById('modal-new-campaign').addEventListener('click', e => {
-  if (e.target === e.currentTarget) hideModal('modal-new-campaign');
-});
-document.getElementById('modal-prospect-detail').addEventListener('click', e => {
-  if (e.target === e.currentTarget) hideModal('modal-prospect-detail');
-});
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
