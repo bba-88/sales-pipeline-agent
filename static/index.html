@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Pipeline Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+    .badge-new        { background: #1e3a5f; color: #60a5fa; }
+    .badge-researching{ background: #2d1b69; color: #a78bfa; }
+    .badge-sequencing { background: #1a3a2a; color: #34d399; }
+    .badge-responded  { background: #3b2a00; color: #fbbf24; }
+    .badge-meeting_booked{ background: #1a2e1a; color: #86efac; }
+    .badge-disqualified{ background: #2d1b1b; color: #f87171; }
+    .badge-interested { background: #1a2e1a; color: #86efac; }
+    .badge-not_now    { background: #2d2a00; color: #fde047; }
+    .badge-objection  { background: #2d1b00; color: #fb923c; }
+    .badge-unsubscribe{ background: #2d1b1b; color: #f87171; }
+    .badge-other      { background: #1e293b; color: #94a3b8; }
+    .pipeline-step { position: relative; }
+    .pipeline-step:not(:last-child)::after {
+      content: '→'; position: absolute; right: -12px; top: 50%;
+      transform: translateY(-50%); color: #475569; font-size: 12px;
+    }
+    .tab-active { border-bottom: 2px solid #6366f1; color: #818cf8; }
+    .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: #94a3b8; }
+    .btn-primary { background: #6366f1; color: white; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary { background: #334155; color: #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-danger { background: #dc2626; color: white; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    input, select, textarea { background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 8px 12px; width: 100%; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #6366f1; }
+    .spinner { border: 3px solid #334155; border-top: 3px solid #6366f1; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; }
+    .toast-success { background: #065f46; border: 1px solid #059669; color: #d1fae5; }
+    .toast-error   { background: #7f1d1d; border: 1px solid #dc2626; color: #fee2e2; }
+    @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .prose-dark { color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; font-size: 13px; }
+    .pipeline-bar { height: 8px; border-radius: 4px; transition: width 0.5s; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Header -->
+<div class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+      <i data-lucide="zap" class="w-4 h-4 text-white"></i>
+    </div>
+    <div>
+      <h1 class="text-lg font-bold text-white">Sales Pipeline Agent</h1>
+      <p class="text-xs text-slate-500">Autonomous AI-Powered Revenue Generation</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span class="text-sm text-slate-400">Agent Online</span>
+  </div>
+</div>
+
+<!-- Nav Tabs -->
+<div class="border-b border-slate-700 px-6 flex gap-6">
+  <button onclick="showTab('dashboard')" id="tab-dashboard" class="tab-active py-3 text-sm font-medium transition-colors">Dashboard</button>
+  <button onclick="showTab('campaigns')" id="tab-campaigns" class="tab-inactive py-3 text-sm font-medium transition-colors">Campaigns</button>
+  <button onclick="showTab('prospects')" id="tab-prospects" class="tab-inactive py-3 text-sm font-medium transition-colors">Prospects</button>
+  <button onclick="showTab('inbox')" id="tab-inbox" class="tab-inactive py-3 text-sm font-medium transition-colors">Reply Inbox</button>
+</div>
+
+<div class="p-6 max-w-7xl mx-auto">
+
+  <!-- ===== DASHBOARD TAB ===== -->
+  <div id="view-dashboard">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="card p-4">
+        <p class="text-xs text-slate-500 mb-1">Total Prospects</p>
+        <p class="text-2xl font-bold text-white" id="stat-prospects">—</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-slate-500 mb-1">Active Campaigns</p>
+        <p class="text-2xl font-bold text-white" id="stat-campaigns">—</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-slate-500 mb-1">Reply Rate</p>
+        <p class="text-2xl font-bold text-emerald-400" id="stat-reply-rate">—</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-slate-500 mb-1">Meetings Booked</p>
+        <p class="text-2xl font-bold text-indigo-400" id="stat-meetings">—</p>
+      </div>
+    </div>
+
+    <!-- Pipeline Funnel -->
+    <div class="card p-5 mb-6">
+      <h3 class="text-sm font-semibold text-slate-300 mb-4">Pipeline Funnel</h3>
+      <div id="pipeline-funnel" class="space-y-3"></div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="card p-5">
+      <h3 class="text-sm font-semibold text-slate-300 mb-4">Recent Agent Activity</h3>
+      <div id="activity-feed" class="space-y-2 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ===== CAMPAIGNS TAB ===== -->
+  <div id="view-campaigns" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Campaigns</h2>
+      <button class="btn-primary" onclick="showModal('modal-new-campaign')">+ New Campaign</button>
+    </div>
+    <div id="campaigns-list" class="space-y-3"></div>
+  </div>
+
+  <!-- ===== PROSPECTS TAB ===== -->
+  <div id="view-prospects" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-semibold">Prospects</h2>
+        <select id="filter-campaign" onchange="loadProspects()" class="text-sm w-48">
+          <option value="">All Campaigns</option>
+        </select>
+        <select id="filter-status" onchange="loadProspects()" class="text-sm w-40">
+          <option value="">All Statuses</option>
+          <option value="new">New</option>
+          <option value="researching">Researching</option>
+          <option value="sequencing">Sequencing</option>
+          <option value="responded">Responded</option>
+          <option value="meeting_booked">Meeting Booked</option>
+          <option value="disqualified">Disqualified</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="showModal('modal-new-prospect')">+ Add Prospect</button>
+    </div>
+    <div id="prospects-list" class="space-y-2"></div>
+  </div>
+
+  <!-- ===== INBOX TAB ===== -->
+  <div id="view-inbox" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Reply Inbox — Simulate Inbound Reply</h2>
+    </div>
+    <div class="grid grid-cols-2 gap-6">
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Submit a Reply for AI Classification</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-slate-400">Prospect</label>
+            <select id="reply-prospect-id" class="mt-1">
+              <option value="">Select prospect...</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">Channel</label>
+            <select id="reply-channel" class="mt-1">
+              <option value="email">Email</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">Reply Content</label>
+            <textarea id="reply-content" rows="6" placeholder="Paste the prospect's reply here..." class="mt-1"></textarea>
+          </div>
+          <button class="btn-primary w-full" onclick="submitReply()">
+            <span id="reply-btn-text">Classify with AI</span>
+          </button>
+        </div>
+      </div>
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">AI Analysis</h3>
+        <div id="reply-result" class="text-slate-500 text-sm italic">Submit a reply to see AI classification...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- New Campaign Modal -->
+<div id="modal-new-campaign" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+  <div class="card p-6 w-full max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">New Campaign</h3>
+      <button onclick="hideModal('modal-new-campaign')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-400">Campaign Name *</label>
+        <input id="c-name" placeholder="e.g. Q2 SaaS Outreach" class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">ICP Definition</label>
+        <textarea id="c-icp" rows="2" placeholder="e.g. B2B SaaS companies, 50-500 employees, Series A/B funded, VP Sales or CRO" class="mt-1"></textarea>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">Value Proposition *</label>
+        <textarea id="c-value" rows="3" placeholder="e.g. We help B2B SaaS companies 10x their outbound pipeline with AI-powered personalization at scale..." class="mt-1"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-400">Tone</label>
+          <select id="c-tone" class="mt-1">
+            <option value="professional">Professional</option>
+            <option value="conversational">Conversational</option>
+            <option value="direct">Direct</option>
+            <option value="warm">Warm</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">Daily Send Limit</label>
+          <input id="c-limit" type="number" value="50" class="mt-1" />
+        </div>
+      </div>
+      <button class="btn-primary w-full mt-2" onclick="createCampaign()">Create Campaign</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Prospect Modal -->
+<div id="modal-new-prospect" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+  <div class="card p-6 w-full max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">Add Prospect</h3>
+      <button onclick="hideModal('modal-new-prospect')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-400">First Name *</label>
+          <input id="p-first" placeholder="Sarah" class="mt-1" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">Last Name *</label>
+          <input id="p-last" placeholder="Chen" class="mt-1" />
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">Email *</label>
+        <input id="p-email" type="email" placeholder="sarah@acmecorp.com" class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">Title</label>
+        <input id="p-title" placeholder="VP of Sales" class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">Company</label>
+        <input id="p-company" placeholder="Acme Corp" class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">LinkedIn URL</label>
+        <input id="p-linkedin" placeholder="https://linkedin.com/in/..." class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">Campaign</label>
+        <select id="p-campaign" class="mt-1">
+          <option value="">No campaign</option>
+        </select>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button class="btn-secondary flex-1" onclick="createProspect(false)">Add Only</button>
+        <button class="btn-primary flex-1" onclick="createProspect(true)">Add & Enroll with AI ⚡</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Prospect Detail Modal -->
+<div id="modal-prospect-detail" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50">
+  <div class="card p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold" id="detail-title">Prospect Details</h3>
+      <button onclick="hideModal('modal-prospect-detail')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <div id="prospect-detail-content"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+
+// ─── Utility ───────────────────────────────────────────────────────────────
+function showTab(name) {
+  ['dashboard','campaigns','prospects','inbox'].forEach(t => {
+    document.getElementById('view-' + t).classList.add('hidden');
+    document.getElementById('tab-' + t).className = 'tab-inactive py-3 text-sm font-medium transition-colors';
+  });
+  document.getElementById('view-' + name).classList.remove('hidden');
+  document.getElementById('tab-' + name).className = 'tab-active py-3 text-sm font-medium transition-colors';
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'campaigns') loadCampaigns();
+  if (name === 'prospects') loadProspects();
+  if (name === 'inbox') loadInboxProspects();
+}
+
+function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function badge(status) {
+  const label = status.replace(/_/g,' ');
+  return `<span class="badge-${status} px-2 py-0.5 rounded-full text-xs font-medium capitalize">${label}</span>`;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, { headers: {'Content-Type':'application/json'}, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ─── Dashboard ─────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const data = await api('/api/analytics/dashboard');
+    const s = data.summary;
+    document.getElementById('stat-prospects').textContent = s.total_prospects;
+    document.getElementById('stat-campaigns').textContent = s.total_campaigns;
+    document.getElementById('stat-reply-rate').textContent = s.reply_rate_pct + '%';
+    document.getElementById('stat-meetings').textContent = s.total_meetings;
+
+    // Pipeline funnel
+    const funnel = document.getElementById('pipeline-funnel');
+    const stages = [
+      { key:'new', label:'New', color:'#3b82f6' },
+      { key:'researching', label:'Researching', color:'#8b5cf6' },
+      { key:'sequencing', label:'Sequencing', color:'#10b981' },
+      { key:'responded', label:'Responded', color:'#f59e0b' },
+      { key:'meeting_booked', label:'Meeting Booked', color:'#22c55e' },
+      { key:'disqualified', label:'Disqualified', color:'#ef4444' },
+    ];
+    const maxVal = Math.max(...stages.map(s => data.pipeline[s.key] || 0), 1);
+    funnel.innerHTML = stages.map(s => {
+      const v = data.pipeline[s.key] || 0;
+      const pct = Math.round((v / maxVal) * 100);
+      return `<div class="flex items-center gap-3">
+        <span class="text-xs text-slate-400 w-28">${s.label}</span>
+        <div class="flex-1 bg-slate-700 rounded-full h-2">
+          <div class="pipeline-bar rounded-full" style="width:${pct}%;background:${s.color}"></div>
+        </div>
+        <span class="text-xs font-semibold w-6 text-right">${v}</span>
+      </div>`;
+    }).join('');
+
+    // Activity feed
+    const feed = document.getElementById('activity-feed');
+    if (!data.recent_activity.length) {
+      feed.innerHTML = '<p class="text-slate-500 text-sm">No activity yet. Create a campaign and enroll prospects to get started.</p>';
+    } else {
+      feed.innerHTML = data.recent_activity.map(a =>
+        `<div class="flex items-center gap-2 text-xs text-slate-400 py-1 border-b border-slate-700/50">
+          <span class="text-indigo-400 font-mono">${a.agent}</span>
+          <span>→</span>
+          <span class="text-slate-300">${a.action}</span>
+          ${a.prospect_id ? `<span class="text-slate-500">prospect #${a.prospect_id}</span>` : ''}
+          <span class="ml-auto text-slate-600">${new Date(a.time).toLocaleTimeString()}</span>
+        </div>`
+      ).join('');
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// ─── Campaigns ─────────────────────────────────────────────────────────────
+async function loadCampaigns() {
+  const list = document.getElementById('campaigns-list');
+  list.innerHTML = '<p class="text-slate-500 text-sm">Loading...</p>';
+  try {
+    const campaigns = await api('/api/campaigns/');
+    if (!campaigns.length) {
+      list.innerHTML = '<div class="card p-6 text-center text-slate-500 text-sm">No campaigns yet. Create your first one to start automated outreach.</div>';
+      return;
+    }
+    list.innerHTML = campaigns.map(c => `
+      <div class="card p-4 flex items-center justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-medium text-white">${c.name}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${c.status === 'active' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${c.status}</span>
+          </div>
+          <p class="text-xs text-slate-500">${c.icp_definition || 'No ICP defined'}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${c.value_prop ? c.value_prop.substring(0,80) + '...' : 'No value prop'}</p>
+        </div>
+        <div class="text-right ml-4">
+          <p class="text-2xl font-bold text-white">${c.prospect_count}</p>
+          <p class="text-xs text-slate-500">prospects</p>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`;
+  }
+}
+
+async function createCampaign() {
+  const name = document.getElementById('c-name').value.trim();
+  const value_prop = document.getElementById('c-value').value.trim();
+  if (!name) return toast('Campaign name is required', 'error');
+  try {
+    await api('/api/campaigns/', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        icp_definition: document.getElementById('c-icp').value,
+        value_prop,
+        tone: document.getElementById('c-tone').value,
+        daily_send_limit: parseInt(document.getElementById('c-limit').value) || 50,
+      }),
+    });
+    hideModal('modal-new-campaign');
+    toast('Campaign created!');
+    loadCampaigns();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─── Prospects ─────────────────────────────────────────────────────────────
+async function loadProspects() {
+  const list = document.getElementById('prospects-list');
+  list.innerHTML = '<p class="text-slate-500 text-sm">Loading...</p>';
+  const cid = document.getElementById('filter-campaign').value;
+  const status = document.getElementById('filter-status').value;
+  let url = '/api/prospects/?';
+  if (cid) url += `campaign_id=${cid}&`;
+  if (status) url += `status=${status}&`;
+  try {
+    const prospects = await api(url);
+    if (!prospects.length) {
+      list.innerHTML = '<div class="card p-6 text-center text-slate-500 text-sm">No prospects found. Add prospects and enroll them to start AI-powered outreach.</div>';
+      return;
+    }
+    list.innerHTML = prospects.map(p => `
+      <div class="card p-4 flex items-center justify-between cursor-pointer hover:border-slate-500 transition-colors"
+           onclick="viewProspect(${p.id})">
+        <div class="flex items-center gap-3 flex-1">
+          <div class="w-9 h-9 rounded-full bg-indigo-700 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+            ${p.first_name[0]}${p.last_name[0]}
+          </div>
+          <div>
+            <p class="font-medium text-white">${p.first_name} ${p.last_name}</p>
+            <p class="text-xs text-slate-400">${p.title || ''} ${p.company ? '@ ' + p.company : ''}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 ml-4">
+          ${p.score ? `<span class="text-xs font-bold ${p.score >= 80 ? 'text-emerald-400' : p.score >= 60 ? 'text-yellow-400' : 'text-slate-400'}">Score: ${p.score}</span>` : ''}
+          ${badge(p.status)}
+          ${p.status === 'new' ? `<button class="btn-primary text-xs py-1 px-3" onclick="event.stopPropagation(); enrollProspect(${p.id})">Enroll ⚡</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`;
+  }
+}
+
+async function loadProspectDropdowns() {
+  try {
+    const campaigns = await api('/api/campaigns/');
+    const selects = ['p-campaign', 'filter-campaign'];
+    selects.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const extra = el.querySelector('option[value=""]');
+      el.innerHTML = '';
+      if (extra) el.appendChild(extra.cloneNode(true));
+      campaigns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        el.appendChild(opt);
+      });
+    });
+  } catch(e) {}
+}
+
+async function createProspect(andEnroll) {
+  const email = document.getElementById('p-email').value.trim();
+  const first_name = document.getElementById('p-first').value.trim();
+  const last_name = document.getElementById('p-last').value.trim();
+  if (!email || !first_name || !last_name) return toast('Email, first and last name are required', 'error');
+  try {
+    const p = await api('/api/prospects/', {
+      method: 'POST',
+      body: JSON.stringify({
+        email, first_name, last_name,
+        title: document.getElementById('p-title').value,
+        company: document.getElementById('p-company').value,
+        linkedin_url: document.getElementById('p-linkedin').value,
+        campaign_id: document.getElementById('p-campaign').value || null,
+      }),
+    });
+    hideModal('modal-new-prospect');
+    toast(`Prospect added${andEnroll ? ', enrolling...' : '!'}`);
+    if (andEnroll && p.id) {
+      await enrollProspect(p.id);
+    }
+    loadProspects();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function enrollProspect(id) {
+  try {
+    await api(`/api/prospects/${id}/enroll`, { method: 'POST' });
+    toast('AI pipeline started! Research & sequence generation running in background... ⚡');
+    setTimeout(() => loadProspects(), 2000);
+    setTimeout(() => loadDashboard(), 5000);
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function viewProspect(id) {
+  const content = document.getElementById('prospect-detail-content');
+  content.innerHTML = '<div class="flex justify-center py-8"><div class="spinner"></div></div>';
+  showModal('modal-prospect-detail');
+  try {
+    const [p, seqData] = await Promise.all([
+      api(`/api/prospects/${id}`),
+      api(`/api/prospects/${id}/sequence`).catch(() => null),
+    ]);
+    document.getElementById('detail-title').textContent = `${p.first_name} ${p.last_name}`;
+
+    const hooks = p.personalization_hooks || [];
+    const profile = p.research_profile || {};
+    const seq = seqData?.steps || [];
+
+    content.innerHTML = `
+      <div class="space-y-5">
+        <!-- Profile header -->
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-indigo-700 flex items-center justify-center text-lg font-bold text-white">
+            ${p.first_name[0]}${p.last_name[0]}
+          </div>
+          <div>
+            <p class="font-semibold text-white text-lg">${p.first_name} ${p.last_name}</p>
+            <p class="text-sm text-slate-400">${p.title || ''} ${p.company ? '@ ' + p.company : ''}</p>
+            <p class="text-xs text-slate-500">${p.email}</p>
+          </div>
+          <div class="ml-auto">${badge(p.status)}</div>
+        </div>
+
+        <!-- Fit score -->
+        ${p.score ? `
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-slate-400">Fit Score</span>
+            <span class="text-sm font-bold ${p.score >= 80 ? 'text-emerald-400' : p.score >= 60 ? 'text-yellow-400' : 'text-red-400'}">${p.score}/100</span>
+          </div>
+          <div class="bg-slate-700 rounded-full h-2">
+            <div class="h-2 rounded-full ${p.score >= 80 ? 'bg-emerald-500' : p.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}" style="width:${p.score}%"></div>
+          </div>
+        </div>` : ''}
+
+        <!-- Research profile -->
+        ${profile.research_summary ? `
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Research Summary</h4>
+          <p class="text-sm text-slate-300">${profile.research_summary}</p>
+        </div>` : ''}
+
+        ${profile.funding_stage ? `
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-slate-800 rounded-lg p-3">
+            <p class="text-xs text-slate-500">Funding Stage</p>
+            <p class="text-sm font-medium text-white">${profile.funding_stage}</p>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3">
+            <p class="text-xs text-slate-500">Employees</p>
+            <p class="text-sm font-medium text-white">${profile.employee_count || '—'}</p>
+          </div>
+          <div class="bg-slate-800 rounded-lg p-3">
+            <p class="text-xs text-slate-500">Tech Stack</p>
+            <p class="text-sm font-medium text-white">${(profile.tech_stack || []).slice(0,3).join(', ')}</p>
+          </div>
+        </div>` : ''}
+
+        <!-- Personalization hooks -->
+        ${hooks.length ? `
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Personalization Hooks</h4>
+          <div class="space-y-1">
+            ${hooks.map(h => `<div class="flex items-start gap-2 text-sm text-slate-300">
+              <span class="text-indigo-400 mt-0.5">⚡</span><span>${h}</span>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Pain signals -->
+        ${(profile.pain_signals || []).length ? `
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Pain Signals</h4>
+          <div class="flex flex-wrap gap-2">
+            ${profile.pain_signals.map(s => `<span class="bg-rose-900/40 text-rose-300 text-xs px-2 py-1 rounded-full">${s}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Sequence steps -->
+        ${seq.length ? `
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Outreach Sequence (${seq.length} steps)</h4>
+          <div class="space-y-3">
+            ${seq.map(s => `
+            <div class="bg-slate-800 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold text-indigo-400">Step ${s.step}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full ${s.channel === 'email' ? 'bg-blue-900/50 text-blue-400' : 'bg-sky-900/50 text-sky-400'}">${s.channel}</span>
+                ${s.subject ? `<span class="text-xs text-slate-300 font-medium">${s.subject}</span>` : ''}
+                ${s.sent_at ? `<span class="ml-auto text-xs text-emerald-400">Sent ✓</span>` : ''}
+              </div>
+              <p class="prose-dark">${s.body}</p>
+            </div>`).join('')}
+          </div>
+        </div>` : (p.status === 'researching' || p.status === 'new' ? '' : `
+        <div class="text-center py-4">
+          <button class="btn-primary" onclick="hideModal('modal-prospect-detail'); enrollProspect(${p.id})">
+            Generate Sequence with AI ⚡
+          </button>
+        </div>`)}
+
+        <!-- Enroll button if new -->
+        ${p.status === 'new' ? `
+        <div class="text-center pt-2">
+          <button class="btn-primary px-8" onclick="hideModal('modal-prospect-detail'); enrollProspect(${p.id})">
+            Start AI Pipeline ⚡
+          </button>
+        </div>` : ''}
+      </div>
+    `;
+  } catch(e) {
+    content.innerHTML = `<p class="text-red-400">${e.message}</p>`;
+  }
+}
+
+// ─── Inbox ──────────────────────────────────────────────────────────────────
+async function loadInboxProspects() {
+  try {
+    const prospects = await api('/api/prospects/');
+    const sel = document.getElementById('reply-prospect-id');
+    sel.innerHTML = '<option value="">Select prospect...</option>';
+    prospects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.first_name} ${p.last_name} (${p.company || p.email})`;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+async function submitReply() {
+  const pid = document.getElementById('reply-prospect-id').value;
+  const content = document.getElementById('reply-content').value.trim();
+  if (!pid) return toast('Select a prospect', 'error');
+  if (!content) return toast('Enter the reply content', 'error');
+
+  const btn = document.getElementById('reply-btn-text');
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Classifying...';
+
+  try {
+    const result = await api(`/api/prospects/${pid}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content, channel: document.getElementById('reply-channel').value }),
+    });
+
+    const classColors = {
+      interested: 'text-emerald-400', not_now: 'text-yellow-400',
+      wrong_person: 'text-orange-400', unsubscribe: 'text-red-400',
+      objection: 'text-orange-400', other: 'text-slate-400',
+    };
+    const sentimentIcons = { positive: '😊', neutral: '😐', negative: '😟' };
+
+    document.getElementById('reply-result').innerHTML = `
+      <div class="space-y-4">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">${sentimentIcons[result.sentiment] || '🤔'}</span>
+          <div>
+            <span class="text-lg font-bold ${classColors[result.classification] || 'text-white'} capitalize">
+              ${result.classification?.replace(/_/g,' ')}
+            </span>
+            <p class="text-xs text-slate-500 capitalize">Sentiment: ${result.sentiment}</p>
+          </div>
+        </div>
+        ${result.draft_response ? `
+        <div>
+          <p class="text-xs text-slate-400 mb-1 font-semibold uppercase tracking-wider">Suggested Reply Draft</p>
+          <div class="bg-slate-800 rounded-lg p-3 prose-dark">${result.draft_response}</div>
+        </div>` : ''}
+      </div>
+    `;
+    toast('Reply classified!');
+    loadProspects();
+    loadDashboard();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.textContent = 'Classify with AI';
+  }
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  lucide.createIcons();
+  await loadProspectDropdowns();
+  loadDashboard();
+  // Refresh dashboard every 10s during active operations
+  setInterval(loadDashboard, 10000);
+}
+
+// Open modal hooks for prospect dropdowns
+document.getElementById('modal-new-prospect').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideModal('modal-new-prospect');
+});
+document.getElementById('modal-new-campaign').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideModal('modal-new-campaign');
+});
+document.getElementById('modal-prospect-detail').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideModal('modal-prospect-detail');
+});
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
